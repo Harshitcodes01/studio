@@ -57,7 +57,9 @@ export default function DashboardLayout({
       <SidebarInset>
         <header className="flex h-14 items-center gap-4 border-b bg-card px-4 sm:px-6 sticky top-0 z-30">
             <SidebarTrigger className="md:hidden"/>
-            <h1 className="flex-1 text-xl font-semibold">{pageTitle}</h1>
+            <div className="flex-1 flex items-center justify-between">
+              <h1 className="text-xl font-semibold">{pageTitle}</h1>
+            </div>
             <Button variant="ghost" size="icon">
                 <UserCircle className="size-6" />
                 <span className="sr-only">User Profile</span>

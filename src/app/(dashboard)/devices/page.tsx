@@ -19,18 +19,20 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Bot, ShieldX, CheckCircle, HardDrive } from 'lucide-react';
+import { Bot, ShieldX, CheckCircle, HardDrive, PlusCircle } from 'lucide-react';
 import { devices as mockDevices } from '@/lib/data';
 import type { Device } from '@/lib/types';
 import AiPolicyDialog from './_components/ai-policy-dialog';
 import WipeDialog from './_components/wipe-dialog';
 import { useToast } from '@/hooks/use-toast';
+import RegisterDeviceDialog from './_components/register-device-dialog';
 
 export default function DevicesPage() {
   const [devices, setDevices] = useState<Device[]>(mockDevices);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [isAiPolicyDialogOpen, setAiPolicyDialogOpen] = useState(false);
   const [isWipeDialogOpen, setWipeDialogOpen] = useState(false);
+  const [isRegisterDialogOpen, setRegisterDialogOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -60,6 +62,20 @@ export default function DevicesPage() {
     router.push('/jobs');
   };
 
+  const handleRegisterDevice = (newDevice: Omit<Device, 'id' | 'status'>) => {
+    const newDeviceWithId: Device = {
+      ...newDevice,
+      id: (devices.length + 1).toString(),
+      status: 'Unmounted',
+    };
+    setDevices(prev => [newDeviceWithId, ...prev]);
+    setRegisterDialogOpen(false);
+    toast({
+      title: "Device Registered",
+      description: `${newDevice.model} has been added to the list.`,
+    })
+  };
+
   const getStatusBadge = (status: Device['status']) => {
     switch (status) {
       case 'Protected':
@@ -74,11 +90,17 @@ export default function DevicesPage() {
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>Connected Devices</CardTitle>
-          <CardDescription>
-            List of all detected storage devices. System disks are protected from wiping.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Connected Devices</CardTitle>
+            <CardDescription>
+              List of all detected storage devices. System disks are protected from wiping.
+            </CardDescription>
+          </div>
+          <Button onClick={() => setRegisterDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Register Device
+          </Button>
         </CardHeader>
         <CardContent>
           <Table>
@@ -128,6 +150,12 @@ export default function DevicesPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <RegisterDeviceDialog 
+        open={isRegisterDialogOpen}
+        onOpenChange={setRegisterDialogOpen}
+        onRegister={handleRegisterDevice}
+      />
 
       {selectedDevice && (
         <>
