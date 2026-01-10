@@ -63,6 +63,21 @@ service cloud.firestore {
       // Only admins can delete jobs.
       allow delete: if hasRole('admin');
     }
+
+    // Rules for the 'certificates' collection
+    match /certificates/{certificateId} {
+        // Public can read a specific certificate (for verification)
+        allow get: if true;
+        
+        // Authenticated users can list certificates
+        allow list: if isSignedIn();
+
+        // Only operators and admins can create certificates.
+        allow create: if hasAnyRole(['admin', 'operator']);
+
+        // Certificates are immutable.
+        allow update, delete: if false;
+    }
     
     // Fallback rule: deny all other access
     match /{document=**} {

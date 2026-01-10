@@ -85,6 +85,7 @@ export default function DevicesPage() {
         deviceModel: device.model,
         deviceSerial: device.serial,
         deviceSize: device.size,
+        deviceType: device.type,
         policy: { name: policy.name, passes: policy.passes },
         progress: 0,
         logs: [`[${new Date().toISOString()}] Job created for device ${device.path}`],
@@ -179,18 +180,12 @@ export default function DevicesPage() {
                 </CardDescription>
             </div>
               <div className="flex gap-2">
-                <RoleGuard allowed={['admin', 'operator']}
-                    fallback={
-                        <Button variant="destructive" disabled>
-                            Wipe Selected (0)
-                        </Button>
-                    }
-                >
-                    <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0 || isCreatingJobs}>
+                <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0 || isCreatingJobs}>
+                    <RoleGuard allowed={['admin', 'operator']} fallback={<>Wipe Selected (0)</>}>
                         {isCreatingJobs ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Wipe Selected ({selectedDevices.length})
-                    </Button>
-                </RoleGuard>
+                    </RoleGuard>
+                </Button>
                   <RoleGuard allowed={['admin', 'operator']}>
                     <Button onClick={() => setRegisterDialogOpen(true)} variant="outline">
                         <PlusCircle className="mr-2 h-4 w-4" />

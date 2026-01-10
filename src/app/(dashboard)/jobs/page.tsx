@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { collection, query, orderBy, Timestamp, doc, updateDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { collection, query, orderBy, Timestamp, doc, updateDoc, serverTimestamp, arrayUnion, addDoc } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import {
   Card,
@@ -20,13 +20,44 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import type { WipeJob, JobStatus } from '@/lib/types';
-import { CheckCircle2, Loader2, AlertCircle, CircleDashed, Ban, Play, History, Eraser, GanttChartSquare, Info } from 'lucide-react';
+import type { WipeJob, JobStatus, Certificate } from '@/lib/types';
+import { CheckCircle2, Loader2, AlertCircle, CircleDashed, Ban, Play, History, GanttChartSquare, Info } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { RoleGuard } from '@/components/RoleGuard';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import JobDetailsDrawer from './_components/job-details-drawer';
+
+// --- Certificate Creation ---
+async function createCertificate(firestore: any, job: WipeJob) {
+    if (!job.endedAt || !job.startedAt) return; // Should not happen
+    
+    // A real implementation would use a proper hash function
+    const logHash = "d41d8cd98f00b204e9800998ecf8427e".repeat(2); // Dummy SHA256
+
+    const certificateId = `CERT-${Date.now()}`;
+    const newCertificate: Omit<Certificate, 'id'> = {
+        certificateId,
+        jobId: job.jobId,
+        deviceModel: job.deviceModel,
+        deviceSerial: job.deviceSerial,
+        deviceSize: job.deviceSize,
+        deviceType: job.deviceType,
+        wipeMethod: job.policy.name,
+        wipePasses: job.policy.passes,
+        verificationResult: 'PASS',
+        startedAt: job.startedAt,
+        endedAt: job.endedAt,
+        logHash: logHash,
+        createdAt: serverTimestamp() as Timestamp,
+        createdByEmail: job.createdByEmail,
+        createdByUid: job.createdByUid,
+    };
+    
+    const certsCollection = collection(firestore, 'certificates');
+    await addDoc(certsCollection, newCertificate);
+}
+
 
 // --- Job Simulation Logic ---
 const useJobSimulator = (jobs: WipeJob[] | null) => {
@@ -67,6 +98,11 @@ const useJobSimulator = (jobs: WipeJob[] | null) => {
                         logs: arrayUnion(`[${now}] Verification ${isSuccess ? 'successful' : 'failed'}. Job finished.`),
                     };
                     updateDocumentNonBlocking(jobRef, updates);
+
+                    if (isSuccess) {
+                        const completedJob = { ...job, ...updates, endedAt: new Date() };
+                        createCertificate(firestore, completedJob as any);
+                    }
                 }
             });
         }, 3000);

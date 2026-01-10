@@ -30,6 +30,7 @@ export type WipeJob = {
   deviceModel: string;
   deviceSerial: string;
   deviceSize: string;
+  deviceType: Device['type'];
 
   policy: {
     name: string;
@@ -51,7 +52,8 @@ export type WipeJob = {
 
 
 export type Certificate = {
-  id: string;
+  id: string; // Document ID
+  certificateId: string; // Human-readable ID
   jobId: string;
   deviceModel: string;
   deviceSerial: string;
@@ -60,10 +62,12 @@ export type Certificate = {
   wipeMethod: string;
   wipePasses?: number;
   verificationResult: 'PASS' | 'FAIL';
-  wipeStartedAt: string;
-  wipeCompletedAt: string;
+  startedAt: Timestamp;
+  endedAt: Timestamp;
   logHash: string;
-  issuedAt: string;
+  createdAt: Timestamp;
+  createdByEmail: string;
+  createdByUid: string;
 };
 
 export type UserRole = 'admin' | 'operator' | 'auditor';

@@ -54,6 +54,29 @@
         "errorMessage": { "type": "string" }
       },
       "required": ["jobId", "createdByUid", "status", "deviceId", "devicePath", "policy", "progress", "createdAt"]
+    },
+    "Certificate": {
+      "title": "Wipe Certificate",
+      "description": "Represents a tamper-proof certificate for a completed wipe job.",
+      "type": "object",
+      "properties": {
+        "certificateId": { "type": "string" },
+        "jobId": { "type": "string" },
+        "deviceSerial": { "type": "string" },
+        "deviceModel": { "type": "string" },
+        "deviceType": { "type": "string" },
+        "deviceSize": { "type": "string" },
+        "wipeMethod": { "type": "string" },
+        "wipePasses": { "type": "number" },
+        "verificationResult": { "type": "string" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "createdByUid": { "type": "string" },
+        "createdByEmail": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "logHash": { "type": "string", "description": "SHA256 hash of the job logs." }
+      },
+      "required": ["certificateId", "jobId", "deviceSerial", "wipeMethod", "verificationResult", "startedAt", "endedAt", "createdAt", "logHash"]
     }
   },
   "auth": {
@@ -75,6 +98,12 @@
         "$ref": "#/entities/WipeJob"
       },
       "description": "Stores data wipe job information."
+    },
+    "/certificates/{certificateId}": {
+      "schema": {
+        "$ref": "#/entities/Certificate"
+      },
+      "description": "Stores wipe certificates. Authenticated users can read them, but only system processes (admins/operators) can create them."
     }
   }
 }
