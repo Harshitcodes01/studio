@@ -127,11 +127,17 @@ export default function DevicesPage() {
                 </CardDescription>
             </div>
               <div className="flex gap-2">
-                  <RoleGuard allowed={['admin', 'operator']}>
+                <RoleGuard allowed={['admin', 'operator']}
+                    fallback={
+                        <Button variant="destructive" disabled>
+                            Wipe Selected (0)
+                        </Button>
+                    }
+                >
                     <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0}>
                         Wipe Selected ({selectedDevices.length})
                     </Button>
-                  </RoleGuard>
+                </RoleGuard>
                   <RoleGuard allowed={['admin', 'operator']}>
                     <Button onClick={() => setRegisterDialogOpen(true)} variant="outline">
                         <PlusCircle className="mr-2 h-4 w-4" />
