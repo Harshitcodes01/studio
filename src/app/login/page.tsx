@@ -9,8 +9,10 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  User,
 } from 'firebase/auth';
-import { useAuth, useUser } from '@/firebase';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -55,6 +57,7 @@ export default function LoginPage() {
   const [activeTab, setActiveTab] = useState('sign-in');
 
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
@@ -70,14 +73,28 @@ export default function LoginPage() {
     }
   }, [user, isUserLoading, router]);
 
+  const handleUserCreation = async (user: User) => {
+    const userRef = doc(firestore, 'users', user.uid);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      await setDoc(userRef, {
+        email: user.email,
+        role: 'operator', // Default role
+        createdAt: serverTimestamp(),
+      });
+    }
+  };
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
+      let userCredential;
       if (activeTab === 'sign-in') {
-        await signInWithEmailAndPassword(auth, values.email, values.password);
+        userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       } else {
-        await createUserWithEmailAndPassword(auth, values.email, values.password);
+        userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       }
+      await handleUserCreation(userCredential.user);
       router.push('/devices');
     } catch (error: any) {
       console.error('Auth Error:', error);
@@ -95,7 +112,8 @@ export default function LoginPage() {
     setGoogleLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      await handleUserCreation(result.user);
       router.push('/devices');
     } catch (error: any) {
       console.error('Google Sign-In Error:', error);

@@ -11,11 +11,11 @@ import {
   SidebarInset,
   SidebarTrigger
 } from "@/components/ui/sidebar";
-import { HardDrive, ListChecks, LogOut, ShieldCheck, UserCircle } from "lucide-react";
+import { HardDrive, ListChecks, LogOut, ShieldCheck, UserCircle, FileText } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import { useAuth, useUser } from "@/firebase";
+import { useAuth, useUser, useUserRole } from "@/firebase";
 import { useEffect } from "react";
 import {
   DropdownMenu,
@@ -27,11 +27,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 const navItems = [
-    { href: "/devices", icon: HardDrive, label: "Devices" },
-    { href: "/jobs", icon: ListChecks, label: "Jobs" },
-    { href: "/certificates", icon: ShieldCheck, label: "Certificates" },
+    { href: "/devices", icon: HardDrive, label: "Devices", allowedRoles: ['admin', 'operator'] },
+    { href: "/jobs", icon: ListChecks, label: "Jobs", allowedRoles: ['admin', 'operator'] },
+    { href: "/certificates", icon: ShieldCheck, label: "Certificates", allowedRoles: ['admin', 'operator', 'auditor'] },
+    { href: "/audit-logs", icon: FileText, label: "Audit Logs", allowedRoles: ['admin', 'auditor'] },
 ]
 
 export default function DashboardLayout({
@@ -41,9 +43,11 @@ export default function DashboardLayout({
 }) {
     const pathname = usePathname();
     const router = useRouter();
-    const pageTitle = navItems.find(item => pathname.startsWith(item.href))?.label || "Dashboard";
     const { user, isUserLoading } = useUser();
+    const { role, isRoleLoading } = useUserRole();
     const auth = useAuth();
+
+    const pageTitle = navItems.find(item => pathname.startsWith(item.href))?.label || "Dashboard";
 
     useEffect(() => {
         if (!isUserLoading && !user) {
@@ -51,7 +55,7 @@ export default function DashboardLayout({
         }
     }, [isUserLoading, user, router]);
 
-    if (isUserLoading || !user) {
+    if (isUserLoading || isRoleLoading || !user) {
         return (
             <div className="flex h-screen w-screen items-center justify-center">
                 <Skeleton className="h-full w-full" />
@@ -80,7 +84,9 @@ export default function DashboardLayout({
         </SidebarHeader>
         <SidebarContent>
             <SidebarMenu>
-                {navItems.map((item) => (
+                {navItems
+                  .filter(item => item.allowedRoles.includes(role || ''))
+                  .map((item) => (
                      <SidebarMenuItem key={item.href}>
                         <Link href={item.href} legacyBehavior passHref>
                             <SidebarMenuButton isActive={pathname.startsWith(item.href)} tooltip={item.label}>
@@ -115,6 +121,7 @@ export default function DashboardLayout({
                     <p className="text-xs leading-none text-muted-foreground">
                       {user.email}
                     </p>
+                    {role && <Badge variant="outline" className="mt-2 w-fit">{role}</Badge>}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />

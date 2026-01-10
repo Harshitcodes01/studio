@@ -40,3 +40,11 @@ export type Certificate = {
   logHash: string;
   issuedAt: string;
 };
+
+export type UserRole = 'admin' | 'operator' | 'auditor';
+
+export type UserProfile = {
+  email: string;
+  role: UserRole;
+  createdAt: any; // Firestore ServerTimestamp
+};

@@ -27,6 +27,7 @@ import AiPolicyDialog from './_components/ai-policy-dialog';
 import WipeDialog from './_components/wipe-dialog';
 import { useToast } from '@/hooks/use-toast';
 import RegisterDeviceDialog from './_components/register-device-dialog';
+import { RoleGuard } from '@/components/RoleGuard';
 
 export default function DevicesPage() {
   const [devices, setDevices] = useState<Device[]>(mockDevices);
@@ -124,26 +125,30 @@ export default function DevicesPage() {
                 Select devices to wipe. System disks are protected.
                 </CardDescription>
             </div>
-            <div className="flex gap-2">
-                <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0}>
-                    Wipe Selected ({selectedDevices.length})
-                </Button>
-                <Button onClick={() => setRegisterDialogOpen(true)} variant="outline">
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Register
-                </Button>
-            </div>
+             <RoleGuard allowed={['admin', 'operator']}>
+              <div className="flex gap-2">
+                  <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0}>
+                      Wipe Selected ({selectedDevices.length})
+                  </Button>
+                  <Button onClick={() => setRegisterDialogOpen(true)} variant="outline">
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Register
+                  </Button>
+              </div>
+            </RoleGuard>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead padding="checkbox">
-                    <Checkbox
-                        checked={isAllSelected}
-                        onCheckedChange={toggleSelectAll}
-                        aria-label="Select all"
-                    />
+                   <RoleGuard allowed={['admin', 'operator']}>
+                      <Checkbox
+                          checked={isAllSelected}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Select all"
+                      />
+                    </RoleGuard>
                 </TableHead>
                 <TableHead>Device</TableHead>
                 <TableHead>Path</TableHead>
@@ -161,12 +166,14 @@ export default function DevicesPage() {
                     data-state={selectedDevices.some(d => d.id === device.id) && "selected"}
                 >
                     <TableCell padding="checkbox">
+                      <RoleGuard allowed={['admin', 'operator']}>
                         <Checkbox
                             checked={selectedDevices.some(d => d.id === device.id)}
                             onCheckedChange={() => toggleSelectDevice(device)}
                             aria-label="Select row"
                             disabled={device.status === 'Protected'}
                         />
+                      </RoleGuard>
                     </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -180,9 +187,11 @@ export default function DevicesPage() {
                   <TableCell>{device.size}</TableCell>
                   <TableCell>{getStatusBadge(device.status)}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => handleSuggestPolicy(device)}>
-                        <Bot className="mr-2 h-4 w-4" /> AI Policy
-                    </Button>
+                    <RoleGuard allowed={['admin', 'operator']}>
+                      <Button variant="outline" size="sm" onClick={() => handleSuggestPolicy(device)}>
+                          <Bot className="mr-2 h-4 w-4" /> AI Policy
+                      </Button>
+                    </RoleGuard>
                   </TableCell>
                 </TableRow>
               ))}
