@@ -25,16 +25,16 @@ type WipeDialogProps = {
   onConfirmWipe: (policy: WipePolicy) => void;
 };
 
-const wipePolicies: {id: WipePolicy, description: string}[] = [
-    { id: 'Quick Wipe (1-pass)', description: 'Fastest option. Overwrites data with zeros once.' },
-    { id: 'Standard (3-pass)', description: 'A good balance of security and speed (DoD 5220.22-M ECE).' },
-    { id: 'DoD 5220.22-M (7-pass)', description: 'Highly secure 7-pass overwrite. Slower.' },
-    { id: 'Secure Erase', description: 'Uses the drive\'s built-in, fast, and secure erase command (for SSDs).' },
+const wipePolicies: WipePolicy[] = [
+    { name: 'Quick Wipe (1-pass)', passes: 1, description: 'Fastest option. Overwrites data with zeros once.' },
+    { name: 'Standard (3-pass)', passes: 3, description: 'A good balance of security and speed (DoD 5220.22-M ECE).' },
+    { name: 'DoD 5220.22-M (7-pass)', passes: 7, description: 'Highly secure 7-pass overwrite. Slower.' },
+    { name: 'Secure Erase', passes: 1, description: 'Uses the drive\'s built-in, fast, and secure erase command (for SSDs).' },
 ];
 
 export default function WipeDialog({ open, onOpenChange, devices, onConfirmWipe }: WipeDialogProps) {
   const [inputValue, setInputValue] = useState('');
-  const [selectedPolicy, setSelectedPolicy] = useState<WipePolicy>('Standard (3-pass)');
+  const [selectedPolicyName, setSelectedPolicyName] = useState<WipePolicy['name']>('Standard (3-pass)');
   
   const confirmationText = `WIPE ${devices.length} DEVICES`;
   
@@ -43,6 +43,13 @@ export default function WipeDialog({ open, onOpenChange, devices, onConfirmWipe 
       setInputValue('');
     }
   }, [open]);
+
+  const handleConfirm = () => {
+    const policy = wipePolicies.find(p => p.name === selectedPolicyName);
+    if (policy) {
+        onConfirmWipe(policy);
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -57,12 +64,12 @@ export default function WipeDialog({ open, onOpenChange, devices, onConfirmWipe 
         <div className="grid gap-4 py-4">
             <div className="grid gap-2">
                 <Label>Wipe Policy</Label>
-                <RadioGroup value={selectedPolicy} onValueChange={(value: any) => setSelectedPolicy(value)}>
+                <RadioGroup value={selectedPolicyName} onValueChange={(value: any) => setSelectedPolicyName(value)}>
                     {wipePolicies.map((policy) => (
-                         <Label key={policy.id} className="flex items-start gap-3 rounded-md border p-3 hover:bg-accent hover:text-accent-foreground has-[:checked]:bg-accent has-[:checked]:text-accent-foreground">
-                            <RadioGroupItem value={policy.id} id={policy.id} className="mt-0.5" />
+                         <Label key={policy.name} className="flex items-start gap-3 rounded-md border p-3 hover:bg-accent hover:text-accent-foreground has-[:checked]:bg-accent has-[:checked]:text-accent-foreground">
+                            <RadioGroupItem value={policy.name} id={policy.name} className="mt-0.5" />
                             <div>
-                                <span className="font-semibold">{policy.id}</span>
+                                <span className="font-semibold">{policy.name}</span>
                                 <p className="text-xs text-muted-foreground">{policy.description}</p>
                             </div>
                         </Label>
@@ -98,7 +105,7 @@ export default function WipeDialog({ open, onOpenChange, devices, onConfirmWipe 
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             variant="destructive"
-            onClick={() => onConfirmWipe(selectedPolicy)}
+            onClick={handleConfirm}
             disabled={inputValue !== confirmationText}
           >
             Confirm Wipe

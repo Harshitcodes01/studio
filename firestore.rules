@@ -49,14 +49,19 @@ service cloud.firestore {
       allow list: if false;
     }
     
-    // Rules for the 'wipes' collection
-    match /wipes/{wipeId} {
-      // Assume 'wipes' documents have an 'ownerId' field
-      // Users can only read/list wipes they own, or if they are admin/auditor
-      allow get, list: if isSignedIn() && (request.auth.uid == resource.data.ownerId || hasAnyRole(['admin', 'auditor']));
+    // Rules for the 'wipeJobs' collection
+    match /wipeJobs/{jobId} {
+      // Admins, operators, and auditors can read and list jobs.
+      allow get, list: if hasAnyRole(['admin', 'operator', 'auditor']);
       
-      // Only operators and admins can create, update, or delete wipes
-      allow create, update, delete: if hasAnyRole(['admin', 'operator']);
+      // Only operators and admins can create jobs.
+      allow create: if hasAnyRole(['admin', 'operator']);
+
+      // Only operators and admins can update jobs (e.g., status, progress).
+      allow update: if hasAnyRole(['admin', 'operator']);
+      
+      // Only admins can delete jobs.
+      allow delete: if hasRole('admin');
     }
     
     // Fallback rule: deny all other access

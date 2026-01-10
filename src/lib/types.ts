@@ -1,3 +1,5 @@
+import { Timestamp } from 'firebase/firestore';
+
 export type Device = {
   id: string;
   path: string;
@@ -8,22 +10,45 @@ export type Device = {
   status: 'Mounted' | 'Unmounted' | 'Protected';
 };
 
-export type JobStatus = 'Pending' | 'Wiping' | 'Verifying' | 'Completed' | 'Failed';
+export type JobStatus = 'Queued' | 'Running' | 'Verifying' | 'Completed' | 'Failed' | 'Cancelled';
 
-export type WipePolicy = 'Quick Wipe (1-pass)' | 'Standard (3-pass)' | 'DoD 5220.22-M (7-pass)' | 'Secure Erase' | 'Sanitize';
+export type WipePolicy = {
+  name: 'Quick Wipe (1-pass)' | 'Standard (3-pass)' | 'DoD 5220.22-M (7-pass)' | 'Secure Erase';
+  passes: number;
+  description: string;
+}
 
-export type Job = {
-  id: string;
-  deviceId: string;
-  deviceSerial: string;
+export type WipeJob = {
+  id: string; // Document ID
+  jobId: string; // Human-readable ID
+  createdByUid: string;
+  createdByEmail: string;
   status: JobStatus;
+  
+  deviceId: string;
+  devicePath: string;
+  deviceModel: string;
+  deviceSerial: string;
+  deviceSize: string;
+
+  policy: {
+    name: string;
+    passes?: number;
+  };
+  
   progress: number;
-  wipeMethod: string;
-  passes?: number;
-  startedAt: string;
-  completedAt?: string;
-  log: string[];
+  speedMBps?: number;
+  etaSeconds?: number;
+  
+  logs: string[];
+
+  createdAt: Timestamp;
+  startedAt?: Timestamp;
+  endedAt?: Timestamp;
+
+  errorMessage?: string;
 };
+
 
 export type Certificate = {
   id: string;

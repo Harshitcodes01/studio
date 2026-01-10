@@ -22,6 +22,38 @@
         }
       },
       "required": ["email", "role", "createdAt"]
+    },
+    "WipeJob": {
+      "title": "Wipe Job",
+      "description": "Represents a single data wipe job for a device.",
+      "type": "object",
+      "properties": {
+        "jobId": { "type": "string", "description": "Unique identifier for the job." },
+        "createdByUid": { "type": "string", "description": "UID of the user who created the job." },
+        "createdByEmail": { "type": "string", "description": "Email of the user who created the job." },
+        "status": { "type": "string", "enum": ["Queued", "Running", "Verifying", "Completed", "Failed", "Cancelled"], "description": "The current status of the wipe job." },
+        "deviceId": { "type": "string" },
+        "devicePath": { "type": "string" },
+        "deviceModel": { "type": "string" },
+        "deviceSerial": { "type": "string" },
+        "deviceSize": { "type": "string" },
+        "policy": { 
+          "type": "object", 
+          "properties": {
+            "name": { "type": "string" },
+            "passes": { "type": "number" }
+          }
+        },
+        "progress": { "type": "number", "description": "Job progress from 0-100." },
+        "speedMBps": { "type": "number", "description": "Current wipe speed in MB/s." },
+        "etaSeconds": { "type": "number", "description": "Estimated time remaining in seconds." },
+        "logs": { "type": "array", "items": { "type": "string" }, "description": "An array of log messages for the job." },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" },
+        "errorMessage": { "type": "string" }
+      },
+      "required": ["jobId", "createdByUid", "status", "deviceId", "devicePath", "policy", "progress", "createdAt"]
     }
   },
   "auth": {
@@ -38,9 +70,11 @@
       },
       "description": "Stores user profile data, including roles for RBAC. Only the user themselves or an admin can read/write this data."
     },
-    "/wipes/{wipeId}": {
-        "schema": "Wipe",
-        "description": "Stores data wipe job information."
+    "/wipeJobs/{jobId}": {
+      "schema": {
+        "$ref": "#/entities/WipeJob"
+      },
+      "description": "Stores data wipe job information."
     }
   }
 }

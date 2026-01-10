@@ -1,8 +1,8 @@
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import {
   Card,
   CardContent,
@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Bot, ShieldX, CheckCircle, HardDrive, PlusCircle } from 'lucide-react';
+import { Bot, ShieldX, CheckCircle, HardDrive, PlusCircle, Loader2 } from 'lucide-react';
 import { devices as mockDevices } from '@/lib/data';
 import type { Device, WipePolicy } from '@/lib/types';
 import AiPolicyDialog from './_components/ai-policy-dialog';
@@ -29,6 +29,9 @@ import WipeDialog from './_components/wipe-dialog';
 import { useToast } from '@/hooks/use-toast';
 import RegisterDeviceDialog from './_components/register-device-dialog';
 import { RoleGuard } from '@/components/RoleGuard';
+import { useFirestore, useUser } from '@/firebase';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function DevicesPage() {
   const [devices, setDevices] = useState<Device[]>(mockDevices);
@@ -36,8 +39,12 @@ export default function DevicesPage() {
   const [isAiPolicyDialogOpen, setAiPolicyDialogOpen] = useState(false);
   const [isWipeDialogOpen, setWipeDialogOpen] = useState(false);
   const [isRegisterDialogOpen, setRegisterDialogOpen] = useState(false);
+  const [isCreatingJobs, setIsCreatingJobs] = useState(false);
+  
   const router = useRouter();
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
 
   const handleSuggestPolicy = (device: Device) => {
     setSelectedDevices([device]);
@@ -56,18 +63,63 @@ export default function DevicesPage() {
     setWipeDialogOpen(true);
   };
   
-  const handleConfirmWipe = (policy: WipePolicy) => {
-    console.log(`Wiping ${selectedDevices.length} devices with policy: ${policy}`);
+  const handleConfirmWipe = async (policy: WipePolicy) => {
+    if (!user) {
+        toast({ variant: "destructive", title: "Error", description: "You must be logged in to create wipe jobs." });
+        return;
+    }
+    setIsCreatingJobs(true);
     setWipeDialogOpen(false);
     
-    toast({
-        title: "Wipe Job(s) Started",
-        description: `Wiping process for ${selectedDevices.length} devices has been initiated with ${policy}.`,
-        variant: "default"
-    })
+    const jobsCollection = collection(firestore, 'wipeJobs');
     
-    setSelectedDevices([]);
-    router.push('/jobs');
+    const jobPromises = selectedDevices.map((device, index) => {
+      const jobId = `WJ-${Date.now()}-${index}`;
+      const newJob = {
+        jobId: jobId,
+        createdByUid: user.uid,
+        createdByEmail: user.email || 'N/A',
+        status: 'Queued',
+        deviceId: device.id,
+        devicePath: device.path,
+        deviceModel: device.model,
+        deviceSerial: device.serial,
+        deviceSize: device.size,
+        policy: { name: policy.name, passes: policy.passes },
+        progress: 0,
+        logs: [`[${new Date().toISOString()}] Job created for device ${device.path}`],
+        createdAt: serverTimestamp(),
+      };
+
+      return addDoc(jobsCollection, newJob).catch(error => {
+        const contextualError = new FirestorePermissionError({
+            path: `wipeJobs/${jobId}`,
+            operation: 'create',
+            requestResourceData: newJob,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError; // re-throw to be caught by Promise.all
+      });
+    });
+
+    try {
+      await Promise.all(jobPromises);
+      toast({
+          title: "Wipe Jobs Created",
+          description: `${selectedDevices.length} jobs have been added to the queue.`,
+      });
+      setSelectedDevices([]);
+      router.push('/jobs');
+    } catch(e: any) {
+        console.error("Failed to create wipe jobs:", e);
+        toast({
+            variant: "destructive",
+            title: "Failed to Create Jobs",
+            description: e.message || "Could not create one or more wipe jobs. Please check permissions and try again.",
+        });
+    } finally {
+        setIsCreatingJobs(false);
+    }
   };
 
   const handleRegisterDevice = (newDevice: Omit<Device, 'id' | 'status'>) => {
@@ -134,7 +186,8 @@ export default function DevicesPage() {
                         </Button>
                     }
                 >
-                    <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0}>
+                    <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0 || isCreatingJobs}>
+                        {isCreatingJobs ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Wipe Selected ({selectedDevices.length})
                     </Button>
                 </RoleGuard>
@@ -234,5 +287,3 @@ export default function DevicesPage() {
     </>
   );
 }
-
-    
