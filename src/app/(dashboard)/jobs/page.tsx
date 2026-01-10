@@ -100,7 +100,7 @@ const useJobSimulator = (jobs: WipeJob[] | null) => {
                     updateDocumentNonBlocking(jobRef, updates);
 
                     if (isSuccess) {
-                        const completedJob = { ...job, ...updates, endedAt: new Date() };
+                        const completedJob = { ...job, ...updates, endedAt: Timestamp.now() };
                         createCertificate(firestore, completedJob as any);
                     }
                 }

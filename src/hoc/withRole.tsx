@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUserRole } from '@/firebase/auth/use-user-role';
+import { useUserRole } from '@/firebase';
 import type { UserRole } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -20,7 +20,7 @@ export function withRole(
       }
     }, [role, isRoleLoading, router]);
 
-    if (isRoleLoading || !role || !allowedRoles.includes(role)) {
+    if (isRoleLoading || !role || (role && !allowedRoles.includes(role))) {
       // This will be shown while loading or if the user is about to be redirected.
       return <Skeleton className="h-screen w-screen" />;
     }

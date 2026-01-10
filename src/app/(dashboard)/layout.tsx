@@ -11,7 +11,7 @@ import {
   SidebarInset,
   SidebarTrigger
 } from "@/components/ui/sidebar";
-import { HardDrive, ListChecks, LogOut, ShieldCheck, UserCircle, FileText } from "lucide-react";
+import { HardDrive, ListChecks, LogOut, ShieldCheck, UserCircle, FileText, LineChart } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Logo } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -31,8 +31,9 @@ import { Badge } from "@/components/ui/badge";
 
 const navItems = [
     { href: "/devices", icon: HardDrive, label: "Devices", allowedRoles: ['admin', 'operator'] },
-    { href: "/jobs", icon: ListChecks, label: "Jobs", allowedRoles: ['admin', 'operator'] },
+    { href: "/jobs", icon: ListChecks, label: "Jobs", allowedRoles: ['admin', 'operator', 'auditor'] },
     { href: "/certificates", icon: ShieldCheck, label: "Certificates", allowedRoles: ['admin', 'operator', 'auditor'] },
+    { href: "/analytics", icon: LineChart, label: "Analytics", allowedRoles: ['admin', 'auditor'] },
     { href: "/audit-logs", icon: FileText, label: "Audit Logs", allowedRoles: ['admin', 'auditor'] },
 ]
 
@@ -88,7 +89,7 @@ export default function DashboardLayout({
                   .filter(item => item.allowedRoles.includes(role || ''))
                   .map((item) => (
                      <SidebarMenuItem key={item.href}>
-                        <Link href={item.href} passHref>
+                        <Link href={item.href}>
                             <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
                                 <span className="flex items-center gap-2">
                                     <item.icon />
@@ -112,7 +113,7 @@ export default function DashboardLayout({
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user.photoURL ?? ''} alt={user.displayName ?? 'User'} />
-                    <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
+                    <AvatarFallback>{getInitials(user.displayName)}</Fallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
