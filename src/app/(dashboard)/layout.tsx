@@ -90,10 +90,8 @@ export default function DashboardLayout({
                      <SidebarMenuItem key={item.href}>
                         <Link href={item.href} passHref>
                             <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
-                                <a>
-                                    <item.icon />
-                                    <span>{item.label}</span>
-                                </a>
+                                <item.icon />
+                                <span>{item.label}</span>
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
