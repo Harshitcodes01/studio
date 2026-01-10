@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -19,9 +19,10 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Bot, ShieldX, CheckCircle, HardDrive, PlusCircle } from 'lucide-react';
 import { devices as mockDevices } from '@/lib/data';
-import type { Device } from '@/lib/types';
+import type { Device, WipePolicy } from '@/lib/types';
 import AiPolicyDialog from './_components/ai-policy-dialog';
 import WipeDialog from './_components/wipe-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -29,7 +30,7 @@ import RegisterDeviceDialog from './_components/register-device-dialog';
 
 export default function DevicesPage() {
   const [devices, setDevices] = useState<Device[]>(mockDevices);
-  const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [selectedDevices, setSelectedDevices] = useState<Device[]>([]);
   const [isAiPolicyDialogOpen, setAiPolicyDialogOpen] = useState(false);
   const [isWipeDialogOpen, setWipeDialogOpen] = useState(false);
   const [isRegisterDialogOpen, setRegisterDialogOpen] = useState(false);
@@ -37,28 +38,33 @@ export default function DevicesPage() {
   const { toast } = useToast();
 
   const handleSuggestPolicy = (device: Device) => {
-    setSelectedDevice(device);
+    setSelectedDevices([device]);
     setAiPolicyDialogOpen(true);
   };
 
-  const handleWipe = (device: Device) => {
-    if (device.status === 'Protected') return;
-    setSelectedDevice(device);
+  const handleWipe = () => {
+    if (selectedDevices.length === 0) {
+        toast({
+            title: "No Devices Selected",
+            description: "Please select at least one device to wipe.",
+            variant: "destructive"
+        })
+        return;
+    };
     setWipeDialogOpen(true);
   };
   
-  const handleConfirmWipe = (device: Device) => {
-    console.log(`Wiping device: ${device.path}`);
+  const handleConfirmWipe = (policy: WipePolicy) => {
+    console.log(`Wiping ${selectedDevices.length} devices with policy: ${policy}`);
     setWipeDialogOpen(false);
     
-    // Here you would typically call an API to start the wipe job.
-    // For this simulation, we'll just show a toast and redirect.
     toast({
-        title: "Wipe Job Started",
-        description: `Wiping process for ${device.path} has been initiated.`,
+        title: "Wipe Job(s) Started",
+        description: `Wiping process for ${selectedDevices.length} devices has been initiated with ${policy}.`,
         variant: "default"
     })
     
+    setSelectedDevices([]);
     router.push('/jobs');
   };
 
@@ -76,6 +82,22 @@ export default function DevicesPage() {
     })
   };
 
+  const toggleSelectDevice = (device: Device) => {
+    setSelectedDevices(prev => 
+        prev.some(d => d.id === device.id) 
+        ? prev.filter(d => d.id !== device.id)
+        : [...prev, device]
+    )
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedDevices.length === devices.filter(d => d.status !== 'Protected').length) {
+        setSelectedDevices([]);
+    } else {
+        setSelectedDevices(devices.filter(d => d.status !== 'Protected'));
+    }
+  }
+
   const getStatusBadge = (status: Device['status']) => {
     switch (status) {
       case 'Protected':
@@ -87,25 +109,42 @@ export default function DevicesPage() {
     }
   };
 
+  const isAllSelected = useMemo(() => {
+    const unProtectedDevices = devices.filter(d => d.status !== 'Protected');
+    return unProtectedDevices.length > 0 && selectedDevices.length === unProtectedDevices.length;
+  }, [selectedDevices, devices]);
+
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Connected Devices</CardTitle>
-            <CardDescription>
-              List of all detected storage devices. System disks are protected from wiping.
-            </CardDescription>
-          </div>
-          <Button onClick={() => setRegisterDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Register Device
-          </Button>
+        <CardHeader className="flex flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <CardTitle>Connected Devices</CardTitle>
+                <CardDescription>
+                Select devices to wipe. System disks are protected.
+                </CardDescription>
+            </div>
+            <div className="flex gap-2">
+                <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0}>
+                    Wipe Selected ({selectedDevices.length})
+                </Button>
+                <Button onClick={() => setRegisterDialogOpen(true)} variant="outline">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Register
+                </Button>
+            </div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead padding="checkbox">
+                    <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all"
+                    />
+                </TableHead>
                 <TableHead>Device</TableHead>
                 <TableHead>Path</TableHead>
                 <TableHead className="hidden md:table-cell">Model</TableHead>
@@ -117,7 +156,18 @@ export default function DevicesPage() {
             </TableHeader>
             <TableBody>
               {devices.map((device) => (
-                <TableRow key={device.id}>
+                <TableRow 
+                    key={device.id} 
+                    data-state={selectedDevices.some(d => d.id === device.id) && "selected"}
+                >
+                    <TableCell padding="checkbox">
+                        <Checkbox
+                            checked={selectedDevices.some(d => d.id === device.id)}
+                            onCheckedChange={() => toggleSelectDevice(device)}
+                            aria-label="Select row"
+                            disabled={device.status === 'Protected'}
+                        />
+                    </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <HardDrive className="h-5 w-5 text-muted-foreground" />
@@ -130,19 +180,9 @@ export default function DevicesPage() {
                   <TableCell>{device.size}</TableCell>
                   <TableCell>{getStatusBadge(device.status)}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleSuggestPolicy(device)}>
-                        <Bot className="mr-2 h-4 w-4" /> Suggest Policy
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleWipe(device)}
-                        disabled={device.status === 'Protected'}
-                      >
-                        Wipe
-                      </Button>
-                    </div>
+                    <Button variant="outline" size="sm" onClick={() => handleSuggestPolicy(device)}>
+                        <Bot className="mr-2 h-4 w-4" /> AI Policy
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -156,22 +196,23 @@ export default function DevicesPage() {
         onOpenChange={setRegisterDialogOpen}
         onRegister={handleRegisterDevice}
       />
-
-      {selectedDevice && (
-        <>
-          <AiPolicyDialog
-            open={isAiPolicyDialogOpen}
-            onOpenChange={setAiPolicyDialogOpen}
-            device={selectedDevice}
-          />
-          <WipeDialog
-            open={isWipeDialogOpen}
-            onOpenChange={setWipeDialogOpen}
-            device={selectedDevice}
-            onConfirmWipe={handleConfirmWipe}
-          />
-        </>
+      
+      {selectedDevices.length > 0 && (
+          <>
+            <AiPolicyDialog
+                open={isAiPolicyDialogOpen}
+                onOpenChange={setAiPolicyDialogOpen}
+                device={selectedDevices[0]}
+            />
+            <WipeDialog
+                open={isWipeDialogOpen}
+                onOpenChange={setWipeDialogOpen}
+                devices={selectedDevices}
+                onConfirmWipe={handleConfirmWipe}
+            />
+          </>
       )}
+
     </>
   );
 }

@@ -10,6 +10,8 @@ export type Device = {
 
 export type JobStatus = 'Pending' | 'Wiping' | 'Verifying' | 'Completed' | 'Failed';
 
+export type WipePolicy = 'Quick Wipe (1-pass)' | 'Standard (3-pass)' | 'DoD 5220.22-M (7-pass)' | 'Secure Erase' | 'Sanitize';
+
 export type Job = {
   id: string;
   deviceId: string;
