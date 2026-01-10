@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -125,17 +126,19 @@ export default function DevicesPage() {
                 Select devices to wipe. System disks are protected.
                 </CardDescription>
             </div>
-             <RoleGuard allowed={['admin', 'operator']}>
               <div className="flex gap-2">
-                  <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0}>
-                      Wipe Selected ({selectedDevices.length})
-                  </Button>
-                  <Button onClick={() => setRegisterDialogOpen(true)} variant="outline">
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Register
-                  </Button>
+                  <RoleGuard allowed={['admin', 'operator']}>
+                    <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0}>
+                        Wipe Selected ({selectedDevices.length})
+                    </Button>
+                  </RoleGuard>
+                  <RoleGuard allowed={['admin', 'operator']}>
+                    <Button onClick={() => setRegisterDialogOpen(true)} variant="outline">
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Register
+                    </Button>
+                  </RoleGuard>
               </div>
-            </RoleGuard>
         </CardHeader>
         <CardContent>
           <Table>
@@ -225,3 +228,5 @@ export default function DevicesPage() {
     </>
   );
 }
+
+    
