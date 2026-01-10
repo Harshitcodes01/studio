@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
+  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
@@ -32,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
@@ -50,6 +52,7 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setGoogleLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('sign-in');
 
   const auth = useAuth();
   const { user, isUserLoading } = useUser();
@@ -70,13 +73,17 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
+      if (activeTab === 'sign-in') {
+        await signInWithEmailAndPassword(auth, values.email, values.password);
+      } else {
+        await createUserWithEmailAndPassword(auth, values.email, values.password);
+      }
       router.push('/devices');
     } catch (error: any) {
-      console.error('Login Error:', error);
+      console.error('Auth Error:', error);
       toast({
         variant: 'destructive',
-        title: 'Login Failed',
+        title: activeTab === 'sign-in' ? 'Login Failed' : 'Sign Up Failed',
         description: error.message || 'An unexpected error occurred.',
       });
     } finally {
@@ -115,12 +122,58 @@ export default function LoginPage() {
                 <CardTitle className="text-3xl">Wipe Verify</CardTitle>
             </div>
           <CardDescription>
-            Sign in to your account to continue.
+            {activeTab === 'sign-in' ? 'Sign in to your account to continue.' : 'Create an account to get started.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="sign-in">Sign In</TabsTrigger>
+                    <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
+                </TabsList>
+                <TabsContent value="sign-in">
+                    <AuthForm type="Sign In" isLoading={isLoading} onSubmit={form.handleSubmit(onSubmit)} form={form} />
+                </TabsContent>
+                <TabsContent value="sign-up">
+                    <AuthForm type="Sign Up" isLoading={isLoading} onSubmit={form.handleSubmit(onSubmit)} form={form} />
+                </TabsContent>
+            </Tabs>
+          
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">
+                Or continue with
+              </span>
+            </div>
+          </div>
+
+          <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isGoogleLoading}>
+            {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
+            Google
+          </Button>
+
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+interface AuthFormProps {
+    type: 'Sign In' | 'Sign Up';
+    isLoading: boolean;
+    onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+    form: any;
+}
+
+function AuthForm({ type, isLoading, onSubmit, form }: AuthFormProps) {
+    return (
+        <Form {...form}>
+            <form onSubmit={onSubmit} className="space-y-4 pt-4">
               <FormField
                 control={form.control}
                 name="email"
@@ -149,29 +202,9 @@ export default function LoginPage() {
               />
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign In
+                {type}
               </Button>
             </form>
           </Form>
-
-          <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with
-              </span>
-            </div>
-          </div>
-
-          <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isGoogleLoading}>
-            {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon className="mr-2 h-4 w-4" />}
-            Google
-          </Button>
-
-        </CardContent>
-      </Card>
-    </div>
-  );
+    )
 }
