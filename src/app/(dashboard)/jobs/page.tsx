@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, Timestamp, doc, updateDoc, serverTimestamp, arrayUnion, addDoc } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp, doc, updateDoc, serverTimestamp, arrayUnion, addDoc, Firestore } from 'firebase/firestore';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import {
   Card,
@@ -28,8 +28,30 @@ import { RoleGuard } from '@/components/RoleGuard';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import JobDetailsDrawer from './_components/job-details-drawer';
 
+// --- Placeholder for Email Sending Logic ---
+async function sendCompletionEmail(job: WipeJob, certificate: Omit<Certificate, 'id'>) {
+    // THIS IS A PLACEHOLDER
+    // In a real application, this would trigger a Firebase Function.
+    console.log(`%c[Email System] PRETENDING TO SEND EMAIL TO: ${job.notificationEmails.join(', ')}`, 'color: lightblue');
+    console.log(`%c[Email System] Job ${job.jobId} for device ${job.deviceSerial} has completed.`, 'color: lightblue');
+    console.log(`%c[Email System] Certificate ID: ${certificate.certificateId}`, 'color: lightblue');
+    
+    // Here you would make a call to your backend service.
+    // Example:
+    // const sendEmailFunction = httpsCallable(functions, 'sendWipeCompletionEmail');
+    // await sendEmailFunction({ 
+    //   recipients: job.notificationEmails,
+    //   jobId: job.jobId,
+    //   certificateId: certificate.certificateId,
+    //   deviceSerial: job.deviceSerial,
+    //   verificationLink: `${window.location.origin}/verify/${certificate.certificateId}`
+    // });
+    
+    return Promise.resolve();
+}
+
 // --- Certificate Creation ---
-async function createCertificate(firestore: any, job: WipeJob) {
+async function createCertificate(firestore: Firestore, job: WipeJob) {
     if (!job.endedAt || !job.startedAt) return; // Should not happen
     
     // A real implementation would use a proper hash function
@@ -56,6 +78,9 @@ async function createCertificate(firestore: any, job: WipeJob) {
     
     const certsCollection = collection(firestore, 'certificates');
     await addDoc(certsCollection, newCertificate);
+    
+    // After creating certificate, trigger the email notification
+    await sendCompletionEmail(job, newCertificate);
 }
 
 

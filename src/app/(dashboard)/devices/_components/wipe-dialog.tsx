@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, List } from 'lucide-react';
+import { AlertTriangle, Mail } from 'lucide-react';
 import type { Device, WipePolicy } from '@/lib/types';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -22,7 +22,7 @@ type WipeDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   devices: Device[];
-  onConfirmWipe: (policy: WipePolicy) => void;
+  onConfirmWipe: (policy: WipePolicy, notificationEmails: string[]) => void;
 };
 
 const wipePolicies: WipePolicy[] = [
@@ -35,19 +35,22 @@ const wipePolicies: WipePolicy[] = [
 export default function WipeDialog({ open, onOpenChange, devices, onConfirmWipe }: WipeDialogProps) {
   const [inputValue, setInputValue] = useState('');
   const [selectedPolicyName, setSelectedPolicyName] = useState<WipePolicy['name']>('Standard (3-pass)');
-  
+  const [notificationEmails, setNotificationEmails] = useState('');
+
   const confirmationText = `WIPE ${devices.length} DEVICES`;
   
   useEffect(() => {
     if (open) {
       setInputValue('');
+      setNotificationEmails('');
     }
   }, [open]);
 
   const handleConfirm = () => {
     const policy = wipePolicies.find(p => p.name === selectedPolicyName);
     if (policy) {
-        onConfirmWipe(policy);
+        const emails = notificationEmails.split(',').map(e => e.trim()).filter(e => e);
+        onConfirmWipe(policy, emails);
     }
   }
 
@@ -75,6 +78,20 @@ export default function WipeDialog({ open, onOpenChange, devices, onConfirmWipe 
                         </Label>
                     ))}
                 </RadioGroup>
+            </div>
+             <div className="grid gap-2">
+                <Label htmlFor="notify-emails" className="flex items-center gap-2">
+                    <Mail className="h-4 w-4" />
+                    Additional Notification Emails
+                </Label>
+                <Input 
+                    id="notify-emails"
+                    type="text" 
+                    value={notificationEmails}
+                    onChange={(e) => setNotificationEmails(e.target.value)}
+                    placeholder="e.g. manager@example.com (comma-separated)"
+                />
+                <p className="text-xs text-muted-foreground">The user who creates the job is always notified.</p>
             </div>
              <Alert variant="destructive" className="my-4">
               <AlertTriangle className="h-4 w-4" />

@@ -42,6 +42,7 @@ export type WipeJob = {
   etaSeconds?: number;
   
   logs: string[];
+  notificationEmails: string[];
 
   createdAt: Timestamp;
   startedAt?: Timestamp;

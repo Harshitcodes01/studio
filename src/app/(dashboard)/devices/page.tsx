@@ -63,8 +63,8 @@ export default function DevicesPage() {
     setWipeDialogOpen(true);
   };
   
-  const handleConfirmWipe = async (policy: WipePolicy) => {
-    if (!user) {
+  const handleConfirmWipe = async (policy: WipePolicy, notificationEmails: string[]) => {
+    if (!user || !user.email) {
         toast({ variant: "destructive", title: "Error", description: "You must be logged in to create wipe jobs." });
         return;
     }
@@ -72,6 +72,8 @@ export default function DevicesPage() {
     setWipeDialogOpen(false);
     
     const jobsCollection = collection(firestore, 'wipeJobs');
+    
+    const allEmails = [user.email, ...notificationEmails];
     
     const jobPromises = selectedDevices.map((device, index) => {
       const jobId = `WJ-${Date.now()}-${index}`;
@@ -89,6 +91,7 @@ export default function DevicesPage() {
         policy: { name: policy.name, passes: policy.passes },
         progress: 0,
         logs: [`[${new Date().toISOString()}] Job created for device ${device.path}`],
+        notificationEmails: allEmails,
         createdAt: serverTimestamp(),
       };
 
