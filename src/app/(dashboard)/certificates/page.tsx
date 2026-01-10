@@ -60,10 +60,12 @@ export default function CertificatesPage() {
                 </TableCell>
                 <TableCell>{format(new Date(cert.issuedAt), 'yyyy-MM-dd HH:mm')}</TableCell>
                 <TableCell className="text-right">
-                  <Link href={`/verify/${cert.id}`} target='_blank' legacyBehavior>
-                    <Button variant="outline" size="sm">
-                      <Download className="mr-2 h-4 w-4" />
-                      View/Verify
+                  <Link href={`/verify/${cert.id}`} target='_blank' passHref>
+                    <Button asChild variant="outline" size="sm">
+                      <a>
+                        <Download className="mr-2 h-4 w-4" />
+                        View/Verify
+                      </a>
                     </Button>
                   </Link>
                 </TableCell>

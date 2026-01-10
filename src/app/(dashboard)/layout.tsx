@@ -88,10 +88,12 @@ export default function DashboardLayout({
                   .filter(item => item.allowedRoles.includes(role || ''))
                   .map((item) => (
                      <SidebarMenuItem key={item.href}>
-                        <Link href={item.href} legacyBehavior passHref>
-                            <SidebarMenuButton isActive={pathname.startsWith(item.href)} tooltip={item.label}>
-                                <item.icon />
-                                <span>{item.label}</span>
+                        <Link href={item.href} passHref>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
+                                <a>
+                                    <item.icon />
+                                    <span>{item.label}</span>
+                                </a>
                             </SidebarMenuButton>
                         </Link>
                     </SidebarMenuItem>
