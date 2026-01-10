@@ -1,0 +1,139 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account within the Wipe Verify application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user account."
+        },
+        "username": {
+          "type": "string",
+          "description": "The username used to log in.",
+          "format": "string"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user in the application (e.g., Recycling Operator, IT Admin, Auditor).",
+          "format": "string"
+        },
+        "lastLogin": {
+          "type": "string",
+          "description": "The last login timestamp of the user.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "role"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user account information. Path-based ownership ensures only the user or an admin can access the document. This is private data so should only be accessible to the given user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/wipes/{wipeId}",
+        "definition": {
+          "entityName": "wipe",
+          "schema": {
+            "$ref": "#/backend/entities/wipe"
+          },
+          "description": "Stores data wipe job information, including status, method, and associated user. Could include denormalized 'ownerId' for authorization.",
+          "params": [
+            {
+              "name": "wipeId",
+              "description": "The unique identifier for the wipe job."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/wipes/{wipeId}/devices/{deviceId}",
+        "definition": {
+          "entityName": "device",
+          "schema": {
+            "$ref": "#/backend/entities/device"
+          },
+          "description": "Stores device details associated with a specific wipe job. Inherits authorization from the parent 'wipe' document.",
+          "params": [
+            {
+              "name": "wipeId",
+              "description": "The unique identifier for the wipe job."
+            },
+            {
+              "name": "deviceId",
+              "description": "The unique identifier for the device."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/wipes/{wipeId}/logs/{logId}",
+        "definition": {
+          "entityName": "log",
+          "schema": {
+            "$ref": "#/backend/entities/log"
+          },
+          "description": "Stores logs related to a specific wipe job. Inherits authorization from the parent 'wipe' document.",
+          "params": [
+            {
+              "name": "wipeId",
+              "description": "The unique identifier for the wipe job."
+            },
+            {
+              "name": "logId",
+              "description": "The unique identifier for the log entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/wipes/{wipeId}/certificates/{certificateId}",
+        "definition": {
+          "entityName": "certificate",
+          "schema": {
+            "$ref": "#/backend/entities/certificate"
+          },
+          "description": "Stores certificates generated after a successful wipe. Inherits authorization from the parent 'wipe' document.",
+          "params": [
+            {
+              "name": "wipeId",
+              "description": "The unique identifier for the wipe job."
+            },
+            {
+              "name": "certificateId",
+              "description": "The unique identifier for the certificate."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore structure is designed to support the Wipe Verify application, focusing on secure data erasure and certification. It prioritizes authorization independence and clear access control. User data is stored in `/users/{userId}`. The core of the application revolves around `wipes/{wipeId}`, which stores all information regarding individual wipes. Device data is stored in `wipes/{wipeId}/devices/{deviceId}`. Logs are kept under `wipes/{wipeId}/logs/{logId}`. Certificates are located under `wipes/{wipeId}/certificates/{certificateId}`. This design promotes Authorization Independence by avoiding hierarchical dependencies and denormalizing any necessary authorization data. Specifically, the wipe documents can include fields such as `ownerId` or a `members` map if collaborative wipes are implemented in the future (out of scope for MVP, but good for forward compatibility). The segregation of data into separate collections based on entity types (`users`, `wipes`, `devices`, `logs`, `certificates`) supports QAPs by ensuring that list operations can be secured with simple rules based on the collection's inherent security posture."
+  }
+}

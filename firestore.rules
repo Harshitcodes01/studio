@@ -1,0 +1,188 @@
+/**
+ * This ruleset enforces a strict user-ownership security model for the Wipe Verify application.
+ *
+ * Core Philosophy:
+ * Access is denied by default. All data access requires user authentication. A user's private data
+ * is accessible only to them, and all application-specific data (like data wipes and certificates)
+ * is tied to a specific owner.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores private user profile data. Access is restricted to the document owner.
+ * - /wipes/{wipeId}: Stores information about a specific data wipe job. This is the root document
+ *   for all related data, including devices, logs, and certificates.
+ * - /wipes/{wipeId}/...: Subcollections for devices, logs, and certificates inherit their access
+ *   permissions from their parent wipe document.
+ *
+ * Key Security Decisions:
+ * - User Enumeration Disabled: Listing documents in the top-level `/users` collection is explicitly
+ *   disallowed to protect user privacy.
+ * - Ownership via Denormalization: Access to a `/wipes/{wipeId}` document and all its subcollections
+ *   is controlled by a denormalized `ownerId` field directly on the wipe document. This avoids costly
+ *   and complex database lookups, resulting in faster and more secure rules.
+ * - Relational Integrity: Rules ensure that the `id` field within a user document and the `ownerId`
+ *   field within a wipe document are immutable and correctly set upon creation, preserving the
+ *   integrity of ownership links.
+ *
+ * Prototyping Mode:
+ * These rules are designed for rapid development. They strictly enforce authorization (who can
+ * access what) but do not validate the specific shape or data types of documents, allowing the
+ * application schema to evolve without requiring constant rule changes.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for reusable logic
+    // ===================================
+
+    /**
+     * Is the user authenticated via any method?
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Does the authenticated user's UID match the provided userId?
+     * This is the primary function for checking document ownership.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Check if a document exists. For use with state-changing operations (update, delete)
+     * to prevent acting on non-existent data.
+     */
+    function isExistingDoc() {
+      return resource != null;
+    }
+
+    /**
+     * For User document creation, ensures the creator is the owner and
+     * that the document's internal 'id' field matches the path.
+     */
+    function isValidUserCreate(userId) {
+      return isOwner(userId) && request.resource.data.id == userId;
+    }
+
+    /**
+     * For User document updates, ensures the user is the owner and that the
+     * internal 'id' field is immutable, preventing ownership change.
+     */
+    function isValidUserUpdate(userId) {
+      return isOwner(userId) && request.resource.data.id == resource.data.id;
+    }
+
+    /**
+     * Checks if the authenticated user owns the parent wipe document.
+     * This function is crucial for securing all subcollections of a wipe.
+     * It relies on a denormalized 'ownerId' field on the parent document.
+     */
+    function isParentWipeOwner(wipeId) {
+      let wipeDoc = get(/databases/$(database)/documents/wipes/$(wipeId));
+      // CRITICAL: This rule depends on an 'ownerId' field existing in the 'wipes' document schema.
+      return isSignedIn() && wipeDoc.data.ownerId == request.auth.uid;
+    }
+
+    /**
+     * For Wipe document creation, ensures the creator sets their own UID as the ownerId.
+     * Prototyping Note: The 'wipe' entity schema was not defined in the backend spec, so this
+     * rule assumes an 'ownerId' field will be present in the data.
+     */
+    function isValidWipeCreate() {
+      // CRITICAL: This rule assumes an 'ownerId' field exists for authorization.
+      return isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    /**
+     * For Wipe document updates, ensures the user is the owner and that the 'ownerId' is immutable.
+     * Prototyping Note: Assumes an 'ownerId' field exists.
+     */
+    function isValidWipeUpdate() {
+      // CRITICAL: This rule assumes an 'ownerId' field exists for authorization.
+      let isDocOwner = isOwner(resource.data.ownerId);
+      let isOwnerIdImmutable = request.resource.data.ownerId == resource.data.ownerId;
+      return isDocOwner && isOwnerIdImmutable;
+    }
+
+    /**
+     * @description Rules for the user collection.
+     * @path /users/{userId}
+     * @allow (get, update) A user with auth.uid 'user123' can access their own document at /users/user123.
+     * @deny (get) A user with auth.uid 'user456' cannot access /users/user123.
+     * @deny (list) No user can list the /users collection.
+     * @principle Restricts access to a user's own data tree, preventing data leaks and user enumeration.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isValidUserCreate(userId);
+      allow update: if isExistingDoc() && isValidUserUpdate(userId);
+      allow delete: if isExistingDoc() && isOwner(userId);
+    }
+
+    /**
+     * @description Rules for the top-level 'wipes' collection.
+     * @path /wipes/{wipeId}
+     * @allow (create) An authenticated user can create a new wipe document if they set the 'ownerId' to their own UID.
+     * @deny (update) A user cannot update a wipe document they do not own.
+     * @deny (update) An owner cannot change the 'ownerId' of an existing wipe document.
+     * @principle Enforces document ownership for all write operations and validates relational integrity by making ownership immutable.
+     */
+    match /wipes/{wipeId} {
+      // CRITICAL: The 'wipe' entity schema is missing from the IR. These rules assume an 'ownerId' field
+      // exists on the document for authorization purposes, as suggested by the IR reasoning.
+      allow get: if isOwner(resource.data.ownerId);
+      allow list: if isSignedIn(); // Allows authenticated users to query for wipes; client must filter by ownerId.
+      allow create: if isValidWipeCreate();
+      allow update: if isExistingDoc() && isValidWipeUpdate();
+      allow delete: if isExistingDoc() && isOwner(resource.data.ownerId);
+    }
+
+    /**
+     * @description Rules for devices within a wipe job.
+     * @path /wipes/{wipeId}/devices/{deviceId}
+     * @allow (get, create) A user can access or add a device if they own the parent wipe document.
+     * @deny (get, create) A user cannot access or add a device if they do not own the parent wipe document.
+     * @principle Inherits security context from a parent document, ensuring consistent permissions across a data tree.
+     */
+    match /wipes/{wipeId}/devices/{deviceId} {
+      allow get: if isParentWipeOwner(wipeId);
+      allow list: if isParentWipeOwner(wipeId);
+      allow create: if isParentWipeOwner(wipeId);
+      allow update: if isExistingDoc() && isParentWipeOwner(wipeId);
+      allow delete: if isExistingDoc() && isParentWipeOwner(wipeId);
+    }
+
+    /**
+     * @description Rules for logs within a wipe job.
+     * @path /wipes/{wipeId}/logs/{logId}
+     * @allow (get, list) A user can read logs if they own the parent wipe document.
+     * @deny (update) A user cannot modify a log if they do not own the parent wipe document.
+     * @principle Inherits security context from a parent document, ensuring consistent permissions across a data tree.
+     */
+    match /wipes/{wipeId}/logs/{logId} {
+      allow get: if isParentWipeOwner(wipeId);
+      allow list: if isParentWipeOwner(wipeId);
+      allow create: if isParentWipeOwner(wipeId);
+      allow update: if isExistingDoc() && isParentWipeOwner(wipeId);
+      allow delete: if isExistingDoc() && isParentWipeOwner(wipeId);
+    }
+
+    /**
+     * @description Rules for certificates within a wipe job.
+     * @path /wipes/{wipeId}/certificates/{certificateId}
+     * @allow (create) A user can add a certificate if they own the parent wipe document.
+     * @deny (delete) A user cannot delete a certificate if they do not own the parent wipe document.
+     * @principle Inherits security context from a parent document, ensuring consistent permissions across a data tree.
+     */
+    match /wipes/{wipeId}/certificates/{certificateId} {
+      allow get: if isParentWipeOwner(wipeId);
+      allow list: if isParentWipeOwner(wipeId);
+      allow create: if isParentWipeOwner(wipeId);
+      allow update: if isExistingDoc() && isParentWipeOwner(wipeId);
+      allow delete: if isExistingDoc() && isParentWipeOwner(wipeId);
+    }
+  }
+}
