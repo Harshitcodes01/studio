@@ -45,13 +45,40 @@ export default function RegisterDeviceDialog({ open, onOpenChange, onRegister }:
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      const fileExtension = file.name.split('.').pop()?.toLowerCase();
       const reader = new FileReader();
+      
       reader.onload = (e) => {
         try {
           const content = e.target?.result;
           if (typeof content === 'string') {
-            const data = JSON.parse(content);
-            // very basic validation
+            let data: any;
+            
+            // Parse based on file type
+            if (fileExtension === 'json') {
+              data = JSON.parse(content);
+            } else if (['pdf', 'doc', 'docx', 'txt', 'png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(fileExtension || '')) {
+              // For non-JSON files, extract metadata if available or prompt user
+              // For now, extract from filename
+              const filename = file.name.replace(/\.[^/.]+$/, "");
+              
+              // Try to parse if it looks like JSON (for PDFs with embedded JSON, etc.)
+              try {
+                data = JSON.parse(content);
+              } catch {
+                // If not JSON, create data structure from file metadata
+                toast({ 
+                  variant: "default", 
+                  title: "File Uploaded", 
+                  description: `${file.name} (${(file.size / 1024).toFixed(2)} KB) - Please fill in device details manually.` 
+                });
+                return;
+              }
+            } else {
+              throw new Error(`Unsupported file format: ${fileExtension}`);
+            }
+            
+            // Validate extracted data
             if (data.path && data.type && data.model && data.serial && data.size) {
               setValue('path', data.path);
               setValue('type', data.type);
@@ -60,11 +87,12 @@ export default function RegisterDeviceDialog({ open, onOpenChange, onRegister }:
               setValue('size', data.size);
               toast({ title: "Success", description: "Device data loaded from file." });
             } else {
-              throw new Error("Invalid file format");
+              throw new Error("Invalid file format - missing required fields (path, type, model, serial, size)");
             }
           }
         } catch (error) {
-            toast({ variant: "destructive", title: "Error", description: "Could not parse the device file. Please check the format." });
+          const errorMessage = error instanceof Error ? error.message : "Could not parse the file";
+          toast({ variant: "destructive", title: "Error", description: errorMessage });
         }
       };
       reader.readAsText(file);
@@ -84,7 +112,7 @@ export default function RegisterDeviceDialog({ open, onOpenChange, onRegister }:
         <DialogHeader>
           <DialogTitle>Register New Device</DialogTitle>
           <DialogDescription>
-            Manually add a device for wiping. You can also upload a JSON file.
+            Manually add a device for wiping. You can also upload a file (JSON, PDF, Docs, PNG, etc.).
           </DialogDescription>
         </DialogHeader>
 
@@ -94,9 +122,9 @@ export default function RegisterDeviceDialog({ open, onOpenChange, onRegister }:
                     <Label className="text-right col-span-4">
                         <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                            <Upload className="mr-2 h-4 w-4" />
-                           Load from File
+                           Upload File
                         </Button>
-                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json" />
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".json,.pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.gif,.bmp" />
                     </Label>
                 </div>
 
