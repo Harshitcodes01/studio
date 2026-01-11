@@ -21,11 +21,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Bot, ShieldX, CheckCircle, HardDrive, PlusCircle, Loader2 } from 'lucide-react';
+import { Bot, ShieldX, CheckCircle, HardDrive, PlusCircle, Loader2, FileUp } from 'lucide-react';
 import { devices as mockDevices } from '@/lib/data';
 import type { Device, WipePolicy } from '@/lib/types';
 import AiPolicyDialog from './_components/ai-policy-dialog';
 import WipeDialog from './_components/wipe-dialog';
+import FileWipeDialog from './_components/file-wipe-dialog';
 import { useToast } from '@/hooks/use-toast';
 import RegisterDeviceDialog from './_components/register-device-dialog';
 import { RoleGuard } from '@/components/RoleGuard';
@@ -39,6 +40,7 @@ export default function DevicesPage() {
   const [isAiPolicyDialogOpen, setAiPolicyDialogOpen] = useState(false);
   const [isWipeDialogOpen, setWipeDialogOpen] = useState(false);
   const [isRegisterDialogOpen, setRegisterDialogOpen] = useState(false);
+  const [isFileWipeDialogOpen, setFileWipeDialogOpen] = useState(false);
   const [isCreatingJobs, setIsCreatingJobs] = useState(false);
   
   const router = useRouter();
@@ -140,6 +142,64 @@ export default function DevicesPage() {
     })
   };
 
+  const handleConfirmFileWipe = async (files: File[], policy: WipePolicy, notificationEmails: string[]) => {
+    if (!user || !user.email) {
+      toast({ variant: "destructive", title: "Error", description: "You must be logged in to create wipe jobs." });
+      return;
+    }
+    setIsCreatingJobs(true);
+    setFileWipeDialogOpen(false);
+
+    const jobsCollection = collection(firestore, 'fileWipeJobs');
+    const allEmails = [user.email, ...notificationEmails];
+
+    const jobPromises = files.map((file, index) => {
+      const jobId = `FWJ-${Date.now()}-${index}`;
+      const newJob = {
+        jobId: jobId,
+        createdByUid: user.uid,
+        createdByEmail: user.email || 'N/A',
+        status: 'Queued',
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type || 'unknown',
+        policy: { name: policy.name, passes: policy.passes },
+        progress: 0,
+        logs: [`[${new Date().toISOString()}] File wipe job created for ${file.name}`],
+        notificationEmails: allEmails,
+        createdAt: serverTimestamp(),
+      };
+
+      return addDoc(jobsCollection, newJob).catch(error => {
+        const contextualError = new FirestorePermissionError({
+          path: `fileWipeJobs/${jobId}`,
+          operation: 'create',
+          requestResourceData: newJob,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        throw contextualError;
+      });
+    });
+
+    try {
+      await Promise.all(jobPromises);
+      toast({
+        title: "File Wipe Jobs Created",
+        description: `${files.length} file(s) have been added to the wipe queue.`,
+      });
+      router.push('/jobs');
+    } catch(e: any) {
+      console.error("Failed to create file wipe jobs:", e);
+      toast({
+        variant: "destructive",
+        title: "Failed to Create Jobs",
+        description: e.message || "Could not create one or more wipe jobs. Please check permissions and try again.",
+      });
+    } finally {
+      setIsCreatingJobs(false);
+    }
+  };
+
   const toggleSelectDevice = (device: Device) => {
     setSelectedDevices(prev => 
         prev.some(d => d.id === device.id) 
@@ -182,15 +242,21 @@ export default function DevicesPage() {
                 Select devices to wipe. System disks are protected.
                 </CardDescription>
             </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button onClick={handleWipe} variant="destructive" disabled={selectedDevices.length === 0 || isCreatingJobs}>
-                    <RoleGuard allowed={['admin', 'operator']} fallback={<>Wipe Selected (0)</>}>
+                    <RoleGuard allowed={['admin', 'operator']} fallback={<>Wipe Devices (0)</>}>
                         {isCreatingJobs ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Wipe Selected ({selectedDevices.length})
+                        Wipe Devices ({selectedDevices.length})
+                    </RoleGuard>
+                </Button>
+                <Button onClick={() => setFileWipeDialogOpen(true)} variant="outline" disabled={isCreatingJobs}>
+                    <RoleGuard allowed={['admin', 'operator']} fallback={<>Wipe Files</>}>
+                        {isCreatingJobs ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                        Wipe Files
                     </RoleGuard>
                 </Button>
                   <RoleGuard allowed={['admin', 'operator']}>
-                    <Button onClick={() => setRegisterDialogOpen(true)} variant="outline">
+                    <Button onClick={() => setRegisterDialogOpen(true)} variant="outline" disabled={isCreatingJobs}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Register
                     </Button>
@@ -264,6 +330,13 @@ export default function DevicesPage() {
         open={isRegisterDialogOpen}
         onOpenChange={setRegisterDialogOpen}
         onRegister={handleRegisterDevice}
+      />
+      
+      <FileWipeDialog 
+        open={isFileWipeDialogOpen}
+        onOpenChange={setFileWipeDialogOpen}
+        onConfirmWipe={handleConfirmFileWipe}
+        isLoading={isCreatingJobs}
       />
       
       {selectedDevices.length > 0 && (

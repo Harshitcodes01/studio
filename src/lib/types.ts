@@ -51,6 +51,36 @@ export type WipeJob = {
   errorMessage?: string;
 };
 
+export type FileWipeJob = {
+  id: string; // Document ID
+  jobId: string; // Human-readable ID
+  createdByUid: string;
+  createdByEmail: string;
+  status: JobStatus;
+  
+  fileName: string;
+  fileSize: number; // in bytes
+  fileType: string;
+  filePath?: string;
+
+  policy: {
+    name: string;
+    passes?: number;
+  };
+  
+  progress: number;
+  speedMBps?: number;
+  etaSeconds?: number;
+  
+  logs: string[];
+  notificationEmails: string[];
+
+  createdAt: Timestamp;
+  startedAt?: Timestamp;
+  endedAt?: Timestamp;
+
+  errorMessage?: string;
+};
 
 export type Certificate = {
   id: string; // Document ID
